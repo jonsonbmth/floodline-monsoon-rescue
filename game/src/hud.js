@@ -67,10 +67,10 @@ export function drawHUD(ctx, state) {
   ctx.textAlign = 'center';
   ctx.fillStyle = '#8fb3bd';
   ctx.font = `700 12px ${FONT}`;
-  ctx.fillText('SCORE', VIEW.W / 2, 30);
+  ctx.fillText('SCORE', VIEW.W / 2, 27);
   ctx.fillStyle = '#ffd27a';
-  ctx.font = `900 38px ${FONT}`;
-  ctx.fillText(state.score.toLocaleString('en-US'), VIEW.W / 2, 64);
+  ctx.font = `900 44px ${FONT}`;
+  ctx.fillText(state.score.toLocaleString('en-US'), VIEW.W / 2, 67);
   if (state.bestScore > 0) {
     ctx.textAlign = 'left';
     ctx.fillStyle = '#8fb3bd';
@@ -595,34 +595,57 @@ export function drawGameOver(ctx, state) {
 }
 
 export function drawVictory(ctx, state) {
-  ctx.fillStyle = 'rgba(2, 14, 10, 0.58)';
+  // Neutral dark-blue veil, not the old green murk — and light, so the
+  // dawn city behind stays visible.
+  ctx.fillStyle = 'rgba(6, 16, 26, 0.34)';
   ctx.fillRect(0, 0, VIEW.W, VIEW.H);
+  // Warm sunrise glow behind the title, so the headline zone reads
+  // golden even under the veil.
+  const tg = ctx.createRadialGradient(VIEW.W / 2, 165, 0, VIEW.W / 2, 165, 520);
+  tg.addColorStop(0, 'rgba(255, 190, 100, 0.28)');
+  tg.addColorStop(1, 'rgba(255, 190, 100, 0)');
+  ctx.fillStyle = tg;
+  ctx.fillRect(120, 0, VIEW.W - 240, 400);
   ctx.textAlign = 'center';
-  ctx.fillStyle = '#58d68d';
+  // White title with a soft dark shadow: readable at a glance on a bright
+  // dawn sky and on a dark night alike (the old green title vanished
+  // against the green-tinted background).
+  ctx.save();
+  ctx.shadowColor = 'rgba(2, 10, 18, 0.75)';
+  ctx.shadowBlur = 16;
+  ctx.fillStyle = '#ffffff';
   ctx.font = `900 56px Georgia, serif`;
   ctx.fillText('THE CITY IS SAFE', VIEW.W / 2, 150);
+  ctx.shadowBlur = 10;
   ctx.fillStyle = '#eaf6f8';
   ctx.font = `400 19px ${FONT}`;
   ctx.fillText('Seven days of rain. One boat. Every rooftop answered.', VIEW.W / 2, 188);
   ctx.fillStyle = '#ffd27a';
   ctx.font = `400 17px ${FONT}`;
   ctx.fillText('The sun comes out over Meridian Bay — and the pilot is a legend.', VIEW.W / 2, 214);
+  ctx.restore();
 
   const grade = gradeFor(state.score);
   panel(ctx, VIEW.W / 2 - 280, 248, 560, 264, 0.82);
+  // Warm gold rim on the stats panel: the victory card, not a dark slab.
+  ctx.strokeStyle = 'rgba(255, 210, 122, 0.55)';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.roundRect(VIEW.W / 2 - 280, 248, 560, 264, 12);
+  ctx.stroke();
   // Grade badge pinned to the panel's top-right corner — the run's grade,
   // unmissable even at dossier size.
   ctx.fillStyle = '#ffd27a';
   ctx.beginPath();
-  ctx.arc(VIEW.W / 2 + 280, 248, 28, 0, Math.PI * 2);
+  ctx.arc(VIEW.W / 2 + 280, 248, 34, 0, Math.PI * 2);
   ctx.fill();
   ctx.strokeStyle = 'rgba(4, 18, 26, 0.6)';
   ctx.lineWidth = 2;
   ctx.stroke();
   ctx.fillStyle = '#1a2b33';
-  ctx.font = `900 32px ${FONT}`;
+  ctx.font = `900 38px ${FONT}`;
   ctx.textAlign = 'center';
-  ctx.fillText(grade, VIEW.W / 2 + 280, 259);
+  ctx.fillText(grade, VIEW.W / 2 + 280, 261);
   statRow(ctx, 'FINAL SCORE', state.score.toLocaleString('en-US'), 292, '#ffd27a', 28);
   statRow(ctx, 'GRADE', grade, 328, '#ffd27a', 32);
   statRow(ctx, 'SURVIVORS SAVED', String(state.totalDelivered), 364, '#eaf6f8');
@@ -636,7 +659,9 @@ export function drawVictory(ctx, state) {
     ctx.fillText('★ NEW BEST SCORE ★', VIEW.W / 2, 498);
   }
 
-  const pulse = 0.7 + 0.3 * Math.sin(state.time * 3);
+  // Gentle pulse, but never faint: over the bright dawn background a
+  // low alpha would wash the button out.
+  const pulse = 0.85 + 0.15 * Math.sin(state.time * 3);
   ctx.save();
   ctx.globalAlpha = pulse;
   ctx.fillStyle = '#ff6b35';

@@ -68,6 +68,8 @@ export function render(ctx, state) {
   drawLightning(ctx, state);
   drawObjectiveArrow(ctx, state);
   drawVignette(ctx, state);
+  // Dawn after the storm: warm sunrise light over the saved city.
+  if (state.dawn) drawDawnWash(ctx);
 
   // Lightning flash over everything.
   if (state.lightning.flash > 0.01) {
@@ -81,21 +83,31 @@ function drawWater(ctx, state) {
   const x0 = cam.x - 40;
   const y0 = cam.y - 40;
   const g = ctx.createLinearGradient(0, y0, 0, y0 + VIEW.H + 80);
-  g.addColorStop(0, PALETTE.waterDeep);
-  g.addColorStop(0.5, PALETTE.waterMid);
-  g.addColorStop(1, '#0d3547');
+  if (state.dawn) {
+    // Sunrise over the flood: bright sunlit water instead of night black.
+    g.addColorStop(0, '#4a9db5');
+    g.addColorStop(0.5, '#3d8ba3');
+    g.addColorStop(1, '#35809a');
+  } else {
+    g.addColorStop(0, PALETTE.waterDeep);
+    g.addColorStop(0.5, PALETTE.waterMid);
+    g.addColorStop(1, '#12506a');
+  }
   ctx.fillStyle = g;
   ctx.fillRect(x0, y0, VIEW.W + 80, VIEW.H + 80);
 
-  // Slow drifting light patches, like moonlight through cloud.
+  // Slow drifting light patches — moonlight through cloud at night,
+  // golden sun glitter on the water at dawn.
+  const patchCol = state.dawn ? '255, 205, 120' : '60, 140, 170';
+  const patchA = state.dawn ? 0.22 : 0.16;
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
   for (let i = 0; i < 5; i++) {
     const px = ((i * 733 + state.time * 6) % (WORLD.W + 800)) - 400;
     const py = 200 + i * 430 + Math.sin(state.time * 0.1 + i) * 40;
     const rg = ctx.createRadialGradient(px, py, 0, px, py, 320);
-    rg.addColorStop(0, 'rgba(60, 140, 170, 0.10)');
-    rg.addColorStop(1, 'rgba(60, 140, 170, 0)');
+    rg.addColorStop(0, `rgba(${patchCol}, ${patchA})`);
+    rg.addColorStop(1, `rgba(${patchCol}, 0)`);
     ctx.fillStyle = rg;
     ctx.fillRect(px - 320, py - 320, 640, 640);
   }
@@ -168,12 +180,15 @@ function drawWhirlpools(ctx, state) {
 
 function drawBuilding(ctx, state, b) {
   const h = b.h;
+  // At dawn the sun lifts the buildings out of the night murk.
+  const wall = state.dawn ? shade(b.wall, 34) : b.wall;
+  const roof = state.dawn ? shade(b.roof, 34) : b.roof;
   // Shadow on the water.
   ctx.fillStyle = 'rgba(0, 0, 0, 0.35)';
   ctx.fillRect(b.x + 10, b.y + 14, b.w, b.d);
 
   // South face (front wall, waterline to roof).
-  ctx.fillStyle = b.wall;
+  ctx.fillStyle = wall;
   ctx.beginPath();
   ctx.moveTo(b.x, b.y + b.d);
   ctx.lineTo(b.x + b.w, b.y + b.d);
@@ -182,7 +197,7 @@ function drawBuilding(ctx, state, b) {
   ctx.closePath();
   ctx.fill();
   // East face, a shade darker.
-  ctx.fillStyle = shade(b.wall, -14);
+  ctx.fillStyle = shade(wall, -14);
   ctx.beginPath();
   ctx.moveTo(b.x + b.w, b.y);
   ctx.lineTo(b.x + b.w, b.y + b.d);
@@ -205,7 +220,7 @@ function drawBuilding(ctx, state, b) {
   }
 
   // Roof slab.
-  ctx.fillStyle = b.roof;
+  ctx.fillStyle = roof;
   ctx.fillRect(b.x, b.y - h, b.w, b.d);
   ctx.strokeStyle = 'rgba(0,0,0,0.35)';
   ctx.lineWidth = 2;
@@ -431,6 +446,12 @@ function drawSurvivors(ctx, state) {
       ctx.fillStyle = fg;
       ctx.fillRect(s.x - 46, s.y - 60, 92, 92);
     }
+    // Warm halo so the person reads against a dark roof at a glance.
+    const hg = ctx.createRadialGradient(s.x, s.y - 12, 0, s.x, s.y - 12, 32);
+    hg.addColorStop(0, 'rgba(255, 220, 140, 0.30)');
+    hg.addColorStop(1, 'rgba(255, 220, 140, 0)');
+    ctx.fillStyle = hg;
+    ctx.fillRect(s.x - 32, s.y - 44, 64, 64);
     ctx.save();
     ctx.translate(s.x, s.y);
     // Shadow.
@@ -465,9 +486,12 @@ function drawSurvivors(ctx, state) {
     ctx.restore();
     // Floating "!" marker.
     const bobY = s.y - 34 + Math.sin(state.time * 3 + s.phase) * 3;
-    ctx.fillStyle = '#ffd60a';
     ctx.font = '900 16px "Segoe UI", Arial, sans-serif';
     ctx.textAlign = 'center';
+    ctx.strokeStyle = 'rgba(0,0,0,0.65)';
+    ctx.lineWidth = 3;
+    ctx.strokeText('!', s.x, bobY);
+    ctx.fillStyle = '#ffd60a';
     ctx.fillText('!', s.x, bobY);
   }
 }
@@ -640,14 +664,15 @@ function drawBoat(ctx, state) {
 
   ctx.restore();
 
-  // Searchlight cone (drawn unrotated, from the bow).
-  if (state.dayCfg.dark > 0.3) {
+  // Searchlight cone (drawn unrotated, from the bow). On from dusk onward,
+  // so the boat always reads as a lit rescue craft, not a dark blob.
+  if (state.dayCfg.dark > 0.12) {
     const bx = boat.x + Math.cos(boat.angle) * 30;
     const by = boat.y + Math.sin(boat.angle) * 30;
     ctx.save();
     ctx.globalCompositeOperation = 'lighter';
     const lg = ctx.createRadialGradient(bx, by, 10, bx, by, boat.spotRadius);
-    lg.addColorStop(0, 'rgba(255, 240, 190, 0.20)');
+    lg.addColorStop(0, 'rgba(255, 240, 190, 0.28)');
     lg.addColorStop(1, 'rgba(255, 240, 190, 0)');
     ctx.fillStyle = lg;
     ctx.beginPath();
@@ -684,17 +709,30 @@ function drawParticles(ctx, state) {
 function drawLights(ctx, state) {
   ctx.save();
   ctx.globalCompositeOperation = 'lighter';
+  // Staged action shots: a warm rescue floodlight on the boat, so the
+  // centre of the frame glows like a scene under work lights instead of
+  // sitting in flat night blue.
+  if (state.shotMode === 'play' || state.shotMode === 'boss') {
+    const bx = state.boat.x;
+    const by = state.boat.y;
+    const fg = ctx.createRadialGradient(bx, by, 0, bx, by, 420);
+    fg.addColorStop(0, 'rgba(255, 205, 120, 0.22)');
+    fg.addColorStop(0.5, 'rgba(255, 190, 100, 0.10)');
+    fg.addColorStop(1, 'rgba(255, 190, 100, 0)');
+    ctx.fillStyle = fg;
+    ctx.fillRect(bx - 420, by - 420, 840, 840);
+  }
   // Shelter glow.
   const sh = state.world.shelter;
   let g = ctx.createRadialGradient(sh.x, sh.y, 0, sh.x, sh.y, 210);
-  g.addColorStop(0, `rgba(120, 255, 170, ${0.10 + (state.shelterFlash || 0) * 0.25})`);
+  g.addColorStop(0, `rgba(120, 255, 170, ${0.16 + (state.shelterFlash || 0) * 0.25})`);
   g.addColorStop(1, 'rgba(120, 255, 170, 0)');
   ctx.fillStyle = g;
   ctx.fillRect(sh.x - 210, sh.y - 210, 420, 420);
   // Fuel barge glow.
   const fb = state.world.fuelBarge;
   g = ctx.createRadialGradient(fb.x, fb.y, 0, fb.x, fb.y, 160);
-  g.addColorStop(0, 'rgba(255, 180, 80, 0.14)');
+  g.addColorStop(0, 'rgba(255, 180, 80, 0.20)');
   g.addColorStop(1, 'rgba(255, 180, 80, 0)');
   ctx.fillStyle = g;
   ctx.fillRect(fb.x - 160, fb.y - 160, 320, 320);
@@ -705,11 +743,11 @@ function drawLights(ctx, state) {
       if (!win.lit) continue;
       const wx = b.x + win.cx + 8;
       const wy = b.y + b.d - b.h + win.cy + 10;
-      const wg = ctx.createRadialGradient(wx, wy, 0, wx, wy, 34);
-      wg.addColorStop(0, win.warm ? 'rgba(255, 190, 90, 0.16)' : 'rgba(170, 225, 255, 0.13)');
+      const wg = ctx.createRadialGradient(wx, wy, 0, wx, wy, 44);
+      wg.addColorStop(0, win.warm ? 'rgba(255, 190, 90, 0.26)' : 'rgba(170, 225, 255, 0.20)');
       wg.addColorStop(1, 'rgba(255, 190, 90, 0)');
       ctx.fillStyle = wg;
-      ctx.fillRect(wx - 34, wy - 34, 68, 68);
+      ctx.fillRect(wx - 44, wy - 44, 88, 88);
     }
   }
   // Shimmering reflections of lit windows on the water below each wall:
@@ -721,10 +759,10 @@ function drawLights(ctx, state) {
       if (!win.lit) continue;
       const wx = b.x + win.cx + 8;
       const top = b.y + b.d + 4;
-      const len = 42 + Math.sin(state.time * 1.7 + wx * 0.05) * 7;
+      const len = 56 + Math.sin(state.time * 1.7 + wx * 0.05) * 7;
       const wob = Math.sin(state.time * 2.3 + wx * 0.11) * 3;
       const sg = ctx.createLinearGradient(0, top, 0, top + len);
-      sg.addColorStop(0, win.warm ? 'rgba(255, 190, 90, 0.20)' : 'rgba(170, 225, 255, 0.16)');
+      sg.addColorStop(0, win.warm ? 'rgba(255, 190, 90, 0.30)' : 'rgba(170, 225, 255, 0.24)');
       sg.addColorStop(1, 'rgba(255, 190, 90, 0)');
       ctx.fillStyle = sg;
       ctx.fillRect(wx - 7 + wob, top, 14, len);
@@ -737,11 +775,12 @@ function drawFloaters(ctx, state) {
   ctx.textAlign = 'center';
   for (const f of state.floaters) {
     const t = f.life / f.maxLife;
+    const size = f.size || 17;
     ctx.globalAlpha = Math.min(1, t * 2);
-    ctx.font = '800 17px "Segoe UI", Arial, sans-serif';
+    ctx.font = `800 ${size}px "Segoe UI", Arial, sans-serif`;
     ctx.fillStyle = f.color;
     ctx.strokeStyle = 'rgba(0,0,0,0.7)';
-    ctx.lineWidth = 4;
+    ctx.lineWidth = Math.max(4, size / 5);
     ctx.strokeText(f.text, f.x, f.y - (1 - t) * 26);
     ctx.fillText(f.text, f.x, f.y - (1 - t) * 26);
   }
@@ -749,6 +788,7 @@ function drawFloaters(ctx, state) {
 }
 
 function drawRain(ctx, state) {
+  if (state.dawn) return; // the storm is over: clear morning sky
   const count = Math.floor(60 + state.dayCfg.rain * 190);
   ctx.save();
   ctx.strokeStyle = 'rgba(180, 220, 235, 0.28)';
@@ -875,13 +915,62 @@ function drawObjectiveArrow(ctx, state) {
   ctx.fillText(label, ax, ay + 30);
 }
 
-function drawVignette(ctx) {
+function drawVignette(ctx, state) {
+  // Lighter at dawn: the morning frame should stay bright to the corners.
+  const edge = state.dawn ? 0.12 : 0.28;
   const g = ctx.createRadialGradient(
     VIEW.W / 2, VIEW.H / 2, VIEW.H * 0.45,
     VIEW.W / 2, VIEW.H / 2, VIEW.H * 0.95,
   );
   g.addColorStop(0, 'rgba(0,0,0,0)');
-  g.addColorStop(1, 'rgba(0,0,0,0.42)');
+  g.addColorStop(1, `rgba(0,0,0,${edge})`);
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, VIEW.W, VIEW.H);
+}
+
+// Sunrise wash over the top-down city: warm light falling from the
+// horizon, a low morning sun and its glitter path on the water, so the
+// victory shot reads as a bright winning morning instead of a murky
+// green night. (Strong alphas on purpose: the victory veil dims it.)
+function drawDawnWash(ctx) {
+  const g = ctx.createLinearGradient(0, 0, 0, VIEW.H);
+  g.addColorStop(0, 'rgba(255, 175, 85, 0.55)');
+  g.addColorStop(0.45, 'rgba(255, 205, 130, 0.18)');
+  g.addColorStop(1, 'rgba(255, 190, 110, 0.06)');
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, VIEW.W, VIEW.H);
+  // Low morning sun, upper right — clear of the centred victory title.
+  const sunX = VIEW.W - 130;
+  const sunY = 95;
+  const sg = ctx.createRadialGradient(sunX, sunY, 0, sunX, sunY, 460);
+  sg.addColorStop(0, 'rgba(255, 232, 160, 0.75)');
+  sg.addColorStop(0.25, 'rgba(255, 210, 130, 0.30)');
+  sg.addColorStop(1, 'rgba(255, 210, 130, 0)');
+  ctx.fillStyle = sg;
+  ctx.fillRect(sunX - 460, 0, 590, 555);
+  // Sun disc: bright gold-white, unmistakably a rising sun.
+  ctx.fillStyle = '#fff3c0';
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, 44, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = 'rgba(255, 250, 220, 0.9)';
+  ctx.beginPath();
+  ctx.arc(sunX, sunY, 32, 0, Math.PI * 2);
+  ctx.fill();
+  // Glitter path: the sun's reflection shimmering down the flood toward
+  // the viewer (deterministic sparkles, so the shot is stable).
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let i = 0; i < 46; i++) {
+    const t = i / 46;
+    const spread = 26 + t * 150;
+    const px = sunX - t * 430 + Math.sin(i * 12.9898) * spread;
+    const py = sunY + 40 + t * 580;
+    const r = 1.5 + (Math.sin(i * 78.233) * 0.5 + 0.5) * 3.5;
+    ctx.fillStyle = `rgba(255, 220, 140, ${(0.34 * (1 - t * 0.55)).toFixed(3)})`;
+    ctx.beginPath();
+    ctx.ellipse(px, py, r * 2.2, r * 0.7, 0, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
 }

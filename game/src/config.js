@@ -127,9 +127,9 @@ export const UPGRADES = [
 ];
 
 export const PALETTE = {
-  waterDeep: '#06222e',
-  waterMid: '#0a2e3d',
-  waterLight: '#11455a',
+  waterDeep: '#0a2a3d',
+  waterMid: '#0e3a52',
+  waterLight: '#175a73',
   foam: '#cfe9ef',
   amber: '#ffb347',
   amberHot: '#ffd27a',

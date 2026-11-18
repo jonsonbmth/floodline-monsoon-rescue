@@ -198,10 +198,10 @@ export function stageShot(state, shot, seed) {
   } else if (shot === 'play') {
     baseDayState(state, 3, seed);
     // The cover is the storm at its most dramatic: heavier rain than Day 3
-    // normally gets, and a lighter night grade so the frame reads bright
-    // and high-contrast instead of murky (a staging-only copy of the day
-    // config; the real Day 3 is untouched).
-    state.dayCfg = { ...DAYS[2], rain: 0.85, dark: 0.30 };
+    // normally gets, and a much lighter night grade so the frame reads
+    // bright and high-contrast instead of murky (a staging-only copy of
+    // the day config; the real Day 3 is untouched).
+    state.dayCfg = { ...DAYS[2], rain: 0.85, dark: 0.18 };
     state.screen = 'play';
     state.score = 5640;
     state.bestScore = 8420;
@@ -221,10 +221,11 @@ export function stageShot(state, shot, seed) {
     placeBoatNearRoof(state);
     // Floating event numbers, frozen in frame: the last delivery paid
     // 2 aboard x 100 x combo 3 = +600, and a rooftop group just came aboard.
-    // Long-lived on purpose — the shutter fires seconds after staging.
+    // Big and central, like a marquee event callout — long-lived on
+    // purpose, the shutter fires seconds after staging.
     state.floaters.push(
-      { x: state.boat.x - 150, y: state.boat.y - 150, text: '+600  DELIVERED x3', color: '#ffd27a', life: 99, maxLife: 99 },
-      { x: state.boat.x - 150, y: state.boat.y - 90, text: '+2 RESCUED', color: '#58d68d', life: 99, maxLife: 99 },
+      { x: state.boat.x - 150, y: state.boat.y - 150, text: '+600  DELIVERED x3', color: '#ffd27a', life: 99, maxLife: 99, size: 30 },
+      { x: state.boat.x - 150, y: state.boat.y - 90, text: '+2 RESCUED', color: '#58d68d', life: 99, maxLife: 99, size: 22 },
     );
     // Bolt lands in the open water left of the boat, clear of the roofs,
     // with a fork branching off toward the fuel barge.
@@ -238,6 +239,10 @@ export function stageShot(state, shot, seed) {
     };
   } else if (shot === 'boss') {
     baseDayState(state, 7, seed);
+    // Day 7's real grade (dark 0.9) would drown the shot in black: the
+    // boss photo keeps the storm's rain but lifts the night grade so the
+    // wall, the boat and the rooftops read clearly (staging-only copy).
+    state.dayCfg = { ...DAYS[6], rain: 0.8, dark: 0.35 };
     state.screen = 'play';
     state.score = 11350;
     state.bestScore = 12480;
@@ -301,10 +306,11 @@ export function stageShot(state, shot, seed) {
       });
   } else if (shot === 'end') {
     baseDayState(state, 7, seed);
-    // Dawn after the storm: the rain has nearly stopped and the night
-    // grade lifts, so the victory screen sits over a city the sun is
-    // coming back to (staging-only copy; the real Day 7 is untouched).
-    state.dayCfg = { ...DAYS[6], rain: 0.15, dark: 0.12 };
+    // Dawn after the storm: no rain, no night grade, and the dawn flag
+    // switches the renderer to bright sunlit water, lighter buildings
+    // and a sunrise wash (staging-only; the real Day 7 is untouched).
+    state.dayCfg = { ...DAYS[6], rain: 0, dark: 0 };
+    state.dawn = true;
     state.screen = 'victory';
     state.score = 12480;
     state.totalDelivered = 71;
@@ -312,6 +318,17 @@ export function stageShot(state, shot, seed) {
     state.maxCombo = 5;
     state.boat.hull = 54;
     state.boat.maxHull = 130;
+    // Frame deliberately: shelter lower-right, boat lower-left, both
+    // clear of the centred victory panel (x 360–920, y 248–512) and of
+    // the replay button (x 450–830, y 520–572).
+    const sh = state.world.shelter;
+    frameOn(state, sh.x, sh.y, 1000, 560);
+    state.boat.x = sh.x - 670;
+    state.boat.y = sh.y + 60;
+    state.boat.angle = 0.4;
+    state.boat.vx = 0;
+    state.boat.vy = 0;
+    seedWake(state, 10);
   }
 }
 
