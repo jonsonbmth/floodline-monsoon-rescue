@@ -14,13 +14,29 @@ function rr(ctx, x, y, w, h, r) {
   ctx.closePath();
 }
 
+// World -> screen coordinates, honouring the staged camera zoom (1 in play).
+// Everything drawn in screen space from a world point must go through this.
+export function worldToScreen(state, x, y) {
+  const zoom = state.camera.zoom || 1;
+  return {
+    x: VIEW.W / 2 + (x - state.camera.x - VIEW.W / 2) * zoom,
+    y: VIEW.H / 2 + (y - state.camera.y - VIEW.H / 2) * zoom,
+  };
+}
+
 export function render(ctx, state) {
   const cam = state.camera;
+  const zoom = cam.zoom || 1;
   const shakeX = (Math.random() - 0.5) * state.shake;
   const shakeY = (Math.random() - 0.5) * state.shake;
 
   ctx.save();
   ctx.clearRect(0, 0, VIEW.W, VIEW.H);
+  // Staged shots may zoom the camera in; gameplay always runs at zoom 1,
+  // where this collapses to the plain camera translate.
+  ctx.translate(VIEW.W / 2, VIEW.H / 2);
+  ctx.scale(zoom, zoom);
+  ctx.translate(-VIEW.W / 2, -VIEW.H / 2);
   ctx.translate(-Math.round(cam.x + shakeX), -Math.round(cam.y + shakeY));
 
   drawWater(ctx, state);
@@ -720,8 +736,9 @@ function drawLightning(ctx, state) {
   const L = state.lightning;
   // Warning ring for the incoming strike.
   if (L.pending) {
-    const sx = L.pending.x - state.camera.x;
-    const sy = L.pending.y - state.camera.y;
+    const p = worldToScreen(state, L.pending.x, L.pending.y);
+    const sx = p.x;
+    const sy = p.y;
     const pulse = 0.6 + 0.4 * Math.sin(state.time * 16);
     ctx.strokeStyle = `rgba(255, 80, 80, ${(0.5 + pulse * 0.4).toFixed(3)})`;
     ctx.lineWidth = 3;
@@ -744,10 +761,9 @@ function drawLightning(ctx, state) {
     ctx.lineWidth = 5;
     ctx.beginPath();
     pts.forEach((p, i) => {
-      const x = p.x - state.camera.x;
-      const y = p.y - state.camera.y;
-      if (i === 0) ctx.moveTo(x, y);
-      else ctx.lineTo(x, y);
+      const s = worldToScreen(state, p.x, p.y);
+      if (i === 0) ctx.moveTo(s.x, s.y);
+      else ctx.lineTo(s.x, s.y);
     });
     ctx.stroke();
     ctx.strokeStyle = 'rgba(255,255,255,0.95)';
@@ -780,8 +796,9 @@ function drawObjectiveArrow(ctx, state) {
     label = 'SURVIVOR';
   }
   if (!target) return;
-  const sx = target.x - state.camera.x;
-  const sy = target.y - state.camera.y;
+  const s = worldToScreen(state, target.x, target.y);
+  const sx = s.x;
+  const sy = s.y;
   // Only point when the target is off screen.
   if (sx > 40 && sx < VIEW.W - 40 && sy > 90 && sy < VIEW.H - 40) return;
   const cx = VIEW.W / 2;

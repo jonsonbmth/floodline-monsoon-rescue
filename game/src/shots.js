@@ -4,7 +4,7 @@
 // shots.json documents the same four shots. Physics is frozen for staged
 // shots (see main.js) while rain, light and particles keep animating.
 
-import { DAYS } from './config.js';
+import { DAYS, VIEW } from './config.js';
 import { generateWorld } from './world.js';
 import { makeBoat } from './boat.js';
 import { spawnSurvivors } from './survivors.js';
@@ -54,8 +54,8 @@ function seedWake(state, length = 13) {
 }
 
 function placeBoatNearRoof(state) {
-  // Park the boat hugging a rooftop that holds survivors: boat lower-right
-  // of frame, roof with waving people upper-left, banner clear at top.
+  // Park the boat hugging a rooftop that holds survivors: boat lower-centre
+  // of frame, roof with waving people above it, banner clear at top.
   const spot = state.world.roofSpots[3];
   const b = spot.building;
   state.boat.x = b.x + b.w / 2;
@@ -78,21 +78,84 @@ function placeBoatNearRoof(state) {
       });
     }
   }
-  // Action around the boat: drifting debris and a whirlpool in frame.
-  const kinds = ['log', 'barrel', 'crate'];
-  [[180, 120], [-260, 200], [320, -160]].forEach(([dx, dy], i) => {
-    state.debris.push({
-      x: state.boat.x + dx, y: state.boat.y + dy, vx: 0, vy: 0,
-      angle: i * 1.3, spin: 0.2, size: 14 + i * 3, kind: kinds[i],
+
+  // The cover shot is zoomed in: the boat and its pilot read at judge size,
+  // and the frame is packed with the city instead of empty water.
+  state.camera.zoom = 1.15;
+  frameOn(state, state.boat.x, state.boat.y, 560, 460);
+
+  // Extra buildings fill the frame's empty corners (staging scenery only —
+  // the frozen shot never runs physics). Coordinates are boat-relative,
+  // worked out against the Day 3 / seed 20261118 city so nothing overlaps
+  // the boat, the anchor roof or the shelter.
+  const bx = state.boat.x;
+  const by = state.boat.y;
+  const stageA = makeStagedBuilding(bx - 435, by - 156, 190, 150, 70, 11);
+  const stageB = makeStagedBuilding(bx + 191, by - 169, 170, 140, 75, 23);
+  const stageC = makeStagedBuilding(bx + 122, by + 57, 180, 130, 65, 37);
+  state.world.buildings.push(stageA, stageB, stageC);
+  // Waving survivors on the staged roofs, so every corner of the frame has people.
+  addRoofSurvivor(state, stageA.x + stageA.w / 2 - 14, stageA.y + stageA.d - stageA.h - 18, '#4ecdc4', true, 0.7);
+  addRoofSurvivor(state, stageA.x + stageA.w / 2 + 22, stageA.y + stageA.d - stageA.h - 18, '#ff8fa3', false, 2.4);
+  addRoofSurvivor(state, stageB.x + stageB.w / 2, stageB.y + stageB.d - stageB.h - 18, '#ffd60a', true, 4.1);
+
+  // Action around the boat: drifting debris in the open water and a
+  // whirlpool low-left, clear of the buildings and the minimap.
+  const kinds = ['log', 'barrel', 'crate', 'tyre'];
+  [[-480, -160], [-480, 120], [-420, 60], [-180, 180], [100, 160], [330, 140], [480, 60]]
+    .forEach(([dx, dy], i) => {
+      state.debris.push({
+        x: bx + dx, y: by + dy, vx: 0, vy: 0,
+        angle: i * 1.3, spin: 0.2, size: 14 + (i % 3) * 3, kind: kinds[i % kinds.length],
+      });
     });
-  });
   state.world.whirlpools.push({
-    x: state.boat.x + 340, y: state.boat.y + 230,
-    radius: 100, spin: 1, phase: 0,
+    x: bx - 226, y: by + 104,
+    radius: 90, spin: 1, phase: 0,
   });
   seedWake(state);
-  state.camera.x = state.boat.x - 700;
-  state.camera.y = state.boat.y - 430;
+}
+
+// Staged buildings for the cover shot: extra half-drowned blocks with mostly
+// lit windows, so the frame glows instead of sitting dark and empty.
+const STAGE_ROOFS = ['#2e4a56', '#37474f', '#33424e', '#3d4a4a'];
+const STAGE_WALLS = ['#1c313a', '#22333c', '#1a2b33'];
+
+function makeStagedBuilding(x, y, w, d, h, seed) {
+  const rng = makeRng(seed);
+  const windows = [];
+  const cols = Math.max(2, Math.floor(w / 42));
+  const rows = Math.max(1, Math.floor(h / 34));
+  for (let c = 0; c < cols; c++) {
+    for (let r = 0; r < rows; r++) {
+      windows.push({
+        cx: 14 + c * ((w - 28) / Math.max(1, cols - 1)),
+        cy: 12 + r * ((h - 24) / Math.max(1, rows)),
+        lit: rng() < 0.65,
+        warm: rng() < 0.8,
+      });
+    }
+  }
+  return {
+    id: 1000 + seed, x, y, w, d, h,
+    roof: STAGE_ROOFS[seed % STAGE_ROOFS.length],
+    wall: STAGE_WALLS[seed % STAGE_WALLS.length],
+    windows,
+    tank: rng() < 0.5,
+    antenna: rng() < 0.5,
+    seed: seed * 7919 + 13,
+  };
+}
+
+// Put world point (wx, wy) at screen point (sx, sy) under the camera zoom.
+function frameOn(state, wx, wy, sx, sy) {
+  const zoom = state.camera.zoom || 1;
+  state.camera.x = wx - VIEW.W / 2 - (sx - VIEW.W / 2) / zoom;
+  state.camera.y = wy - VIEW.H / 2 - (sy - VIEW.H / 2) / zoom;
+}
+
+function addRoofSurvivor(state, x, y, coat, flare, phase) {
+  state.survivors.push({ x, y, spot: null, phase, state: 'waiting', flare, coat });
 }
 
 export function stageShot(state, shot, seed) {
@@ -123,10 +186,10 @@ export function stageShot(state, shot, seed) {
     state.holdFlash = true;  // hold a lightning glow in the sky
     state.lightning.flash = 0.4;
     placeBoatNearRoof(state);
-    // Bolt lands just right of the boat, in frame.
+    // Bolt lands in the open water left of the boat, clear of the roofs.
     state.lightning.bolt = {
-      x: state.boat.x + 320, y: state.boat.y - 120, life: 99,
-      segments: boltSegments(state.boat.x + 320, state.boat.y - 120),
+      x: state.boat.x - 226, y: state.boat.y - 139, life: 99,
+      segments: boltSegments(state.boat.x - 226, state.boat.y - 139),
     };
   } else if (shot === 'boss') {
     baseDayState(state, 7, seed);

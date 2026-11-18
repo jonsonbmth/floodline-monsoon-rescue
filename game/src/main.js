@@ -48,7 +48,7 @@ const state = {
   lightning: { timer: 8, flash: 0, bolt: null, pending: null },
   surge: null,
   surgeSwallowedShelter: false,
-  camera: { x: 0, y: 0 },
+  camera: { x: 0, y: 0, zoom: 1 },
   time: 0,
   dt: 0,
   shake: 0,

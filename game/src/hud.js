@@ -3,6 +3,7 @@
 // loss, start and restart.
 
 import { VIEW, WORLD, DAYS, SCORE } from './config.js';
+import { worldToScreen } from './render.js';
 
 const FONT = '"Segoe UI", Arial, sans-serif';
 
@@ -120,8 +121,9 @@ export function drawHUD(ctx, state) {
 
   // "Press E" prompt when a rescue is in reach.
   if (state.rescueTarget && state.screen === 'play') {
-    const sx = boat.x - state.camera.x;
-    const sy = boat.y - state.camera.y - 52;
+    const bp = worldToScreen(state, boat.x, boat.y);
+    const sx = bp.x;
+    const sy = bp.y - 52;
     ctx.fillStyle = 'rgba(4, 18, 26, 0.85)';
     ctx.beginPath();
     ctx.roundRect(sx - 92, sy - 20, 184, 30, 8);
@@ -136,9 +138,10 @@ export function drawHUD(ctx, state) {
 
   // Refuelling notice.
   if (state.refuelling) {
+    const bp = worldToScreen(state, boat.x, boat.y);
     ctx.fillStyle = '#ffb347';
     ctx.font = `800 15px ${FONT}`;
-    ctx.fillText('⛽ REFUELLING…', boat.x - state.camera.x, boat.y - state.camera.y - 52);
+    ctx.fillText('⛽ REFUELLING…', bp.x, bp.y - 52);
   }
 
   // Low hull / fuel warnings.
