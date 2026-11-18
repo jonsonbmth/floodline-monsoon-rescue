@@ -1,0 +1,37 @@
+/* FLOODLINE — Monsoon Rescue: page shell. The game itself is one canvas;
+   this file only centres it on a dark page and keeps it letterboxed. */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  background: #02090e;
+  color: #eaf6f8;
+  font-family: "Segoe UI", Arial, sans-serif;
+  overflow: hidden;
+}
+
+.stage {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+
+#game {
+  display: block;
+  width: min(100vw, calc(100vh * 16 / 9));
+  height: auto;
+  aspect-ratio: 16 / 9;
+  background: #06222e;
+  cursor: crosshair;
+}
