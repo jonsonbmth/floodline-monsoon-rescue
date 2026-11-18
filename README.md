@@ -23,7 +23,7 @@ python3 -m http.server 8080 --directory game
 ```
 
 Controls: WASD / arrows steer (or hold the mouse), SHIFT boost, E rescue,
-P pause, M sound, R restart. Screenshots are staged with `?shot=start|play|boss|end&seed=N`
+P pause, M sound, R restart. Screenshots are staged with `?shot=start|play|boss|upgrade&seed=N`
 (see `shots.json`) — real renders of the game's own code.
 
 ---

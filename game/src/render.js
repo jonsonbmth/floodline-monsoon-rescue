@@ -480,12 +480,13 @@ function drawSurge(ctx, state) {
   const y0 = cam.y - 60;
   const y1 = cam.y + VIEW.H + 60;
   // Drowned ground behind the wall.
-  ctx.fillStyle = 'rgba(4, 20, 28, 0.55)';
+  ctx.fillStyle = 'rgba(2, 14, 20, 0.72)';
   ctx.fillRect(cam.x - 60, y0, x - cam.x + 60, y1 - y0);
   // The wall itself: a towering curl of water.
   const g = ctx.createLinearGradient(x - 200, 0, x + 40, 0);
-  g.addColorStop(0, 'rgba(6, 40, 54, 0.95)');
-  g.addColorStop(0.7, 'rgba(16, 78, 100, 0.98)');
+  g.addColorStop(0, 'rgba(3, 22, 32, 0.97)');
+  g.addColorStop(0.55, 'rgba(8, 48, 66, 0.98)');
+  g.addColorStop(0.8, 'rgba(16, 78, 100, 0.98)');
   g.addColorStop(1, 'rgba(210, 240, 248, 0.98)');
   ctx.fillStyle = g;
   ctx.beginPath();
@@ -498,6 +499,20 @@ function drawSurge(ctx, state) {
   ctx.lineTo(x - 200, y1);
   ctx.closePath();
   ctx.fill();
+  // Turbulence inside the wall: churning streaks rolling down its face.
+  ctx.save();
+  ctx.lineWidth = 5;
+  for (const [off, alpha, freq, speed] of [[-60, 0.20, 0.03, 1.0], [-115, 0.14, 0.045, 1.6], [-165, 0.10, 0.025, 0.7]]) {
+    ctx.strokeStyle = `rgba(150, 215, 230, ${alpha})`;
+    ctx.beginPath();
+    for (let y = y0; y <= y1; y += 30) {
+      const wob = Math.sin(y * freq + surge.crestPhase * speed) * 22;
+      if (y === y0) ctx.moveTo(x + off + wob, y);
+      else ctx.lineTo(x + off + wob, y);
+    }
+    ctx.stroke();
+  }
+  ctx.restore();
   // Foam crest.
   ctx.strokeStyle = 'rgba(230, 250, 255, 0.95)';
   ctx.lineWidth = 10;
@@ -518,9 +533,9 @@ function drawSurge(ctx, state) {
   }
   ctx.stroke();
   // Spray ahead of the wall.
-  for (let i = 0; i < 30; i++) {
+  for (let i = 0; i < 44; i++) {
     const sy = y0 + ((i * 197 + state.time * 90) % (y1 - y0));
-    const sx = x + 30 + ((i * 61) % 90);
+    const sx = x + 30 + ((i * 61) % 110);
     ctx.fillStyle = `rgba(220, 245, 252, ${0.25 + (i % 3) * 0.12})`;
     ctx.beginPath();
     ctx.arc(sx, sy, 2 + (i % 4), 0, Math.PI * 2);
@@ -697,6 +712,24 @@ function drawLights(ctx, state) {
       ctx.fillRect(wx - 34, wy - 34, 68, 68);
     }
   }
+  // Shimmering reflections of lit windows on the water below each wall:
+  // short vertical streaks that wobble with the flood, so the water reads
+  // as a living surface instead of flat dark paint.
+  for (const b of state.world.buildings) {
+    if (b.x < state.camera.x - 220 || b.x > state.camera.x + VIEW.W + 40) continue;
+    for (const win of b.windows) {
+      if (!win.lit) continue;
+      const wx = b.x + win.cx + 8;
+      const top = b.y + b.d + 4;
+      const len = 42 + Math.sin(state.time * 1.7 + wx * 0.05) * 7;
+      const wob = Math.sin(state.time * 2.3 + wx * 0.11) * 3;
+      const sg = ctx.createLinearGradient(0, top, 0, top + len);
+      sg.addColorStop(0, win.warm ? 'rgba(255, 190, 90, 0.20)' : 'rgba(170, 225, 255, 0.16)');
+      sg.addColorStop(1, 'rgba(255, 190, 90, 0)');
+      ctx.fillStyle = sg;
+      ctx.fillRect(wx - 7 + wob, top, 14, len);
+    }
+  }
   ctx.restore();
 }
 
@@ -769,6 +802,23 @@ function drawLightning(ctx, state) {
     ctx.strokeStyle = 'rgba(255,255,255,0.95)';
     ctx.lineWidth = 2;
     ctx.stroke();
+    // Forks branching off the main strike (staged shots only).
+    if (L.bolt.branches) {
+      for (const branch of L.bolt.branches) {
+        ctx.strokeStyle = `rgba(220, 235, 255, ${(L.bolt.life * 2).toFixed(3)})`;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        branch.forEach((p, i) => {
+          const s = worldToScreen(state, p.x, p.y);
+          if (i === 0) ctx.moveTo(s.x, s.y);
+          else ctx.lineTo(s.x, s.y);
+        });
+        ctx.stroke();
+        ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
+      }
+    }
     ctx.restore();
   }
 }

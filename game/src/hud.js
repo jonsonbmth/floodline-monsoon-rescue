@@ -377,7 +377,7 @@ export function drawUpgrade(ctx, state) {
 
   const cards = state.upgradeChoices;
   const cw = 300;
-  const ch = 300;
+  const ch = 250;
   const gap = 28;
   const totalW = cards.length * cw + (cards.length - 1) * gap;
   const x0 = (VIEW.W - totalW) / 2;
@@ -418,8 +418,8 @@ export function drawUpgrade(ctx, state) {
 
   ctx.fillStyle = '#8fb3bd';
   ctx.font = `600 15px ${FONT}`;
-  ctx.fillText('Click a card or press 1 / 2 / 3', VIEW.W / 2, 540);
-  ctx.fillText(`Next: DAY ${state.day} — ${DAYS[state.day - 1].name} · quota ${DAYS[state.day - 1].quota}`, VIEW.W / 2, 566);
+  ctx.fillText('Click a card or press 1 / 2 / 3', VIEW.W / 2, 492);
+  ctx.fillText(`Next: DAY ${state.day} — ${DAYS[state.day - 1].name} · quota ${DAYS[state.day - 1].quota}`, VIEW.W / 2, 518);
 }
 
 // --- Game over / victory ------------------------------------------------------------

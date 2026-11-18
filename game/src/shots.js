@@ -4,7 +4,7 @@
 // shots.json documents the same four shots. Physics is frozen for staged
 // shots (see main.js) while rain, light and particles keep animating.
 
-import { DAYS, VIEW } from './config.js';
+import { DAYS, UPGRADES, VIEW } from './config.js';
 import { generateWorld } from './world.js';
 import { makeBoat } from './boat.js';
 import { spawnSurvivors } from './survivors.js';
@@ -98,6 +98,15 @@ function placeBoatNearRoof(state) {
   addRoofSurvivor(state, stageA.x + stageA.w / 2 - 14, stageA.y + stageA.d - stageA.h - 18, '#4ecdc4', true, 0.7);
   addRoofSurvivor(state, stageA.x + stageA.w / 2 + 22, stageA.y + stageA.d - stageA.h - 18, '#ff8fa3', false, 2.4);
   addRoofSurvivor(state, stageB.x + stageB.w / 2, stageB.y + stageB.d - stageB.h - 18, '#ffd60a', true, 4.1);
+  // A fourth survivor with a flare on the lower building's roof, so the
+  // bottom-centre of the frame has people too.
+  addRoofSurvivor(state, stageC.x + stageC.w / 2 - 6, stageC.y + stageC.d - stageC.h - 18, '#ff6b35', true, 1.9);
+
+  // The fuel barge sails into the top-left of the frame: the cover then
+  // shows the game's whole economy — rescue, shelter AND refuel — at a
+  // glance. (Staging only; the real barge stays on the west side.)
+  state.world.fuelBarge.x = bx - 356;
+  state.world.fuelBarge.y = by - 270;
 
   // Action around the boat: drifting debris in the open water and a
   // whirlpool low-left, clear of the buildings and the minimap.
@@ -164,15 +173,34 @@ export function stageShot(state, shot, seed) {
   if (shot === 'start') {
     baseDayState(state, 1, seed);
     state.screen = 'title';
-    // The boat sits visible at the lower left, clear of the menu cards.
+    // The boat sits visible in the clear water at the lower right, clear of
+    // the menu cards, with a wake trailing behind it.
     state.boat.x = state.world.spawn.x;
     state.boat.y = state.world.spawn.y;
     state.boat.angle = -0.6;
-    state.camera.x = state.boat.x - 220;
-    state.camera.y = state.boat.y - 600;
+    state.camera.x = state.boat.x - 1060;
+    state.camera.y = state.boat.y - 620;
+    seedWake(state, 10);
     state.bestScore = 8420;
+  } else if (shot === 'upgrade') {
+    // The between-days choice: three upgrade cards over the flooded city.
+    // This is the shot that proves the game's depth — the player picks one
+    // upgrade that changes the next day, not just steering a boat.
+    baseDayState(state, 4, seed);
+    state.screen = 'upgrade';
+    state.score = 6420;
+    state.lastDayBonus = 740;
+    state.upgradeChoices = [UPGRADES[0], UPGRADES[1], UPGRADES[4]];
+    state.boat.hull = 82;
+    state.boat.maxHull = 100;
+    state.camera.x = state.boat.x - VIEW.W / 2;
+    state.camera.y = state.boat.y - VIEW.H / 2;
   } else if (shot === 'play') {
     baseDayState(state, 3, seed);
+    // The cover is the storm at its most dramatic: heavier rain than Day 3
+    // normally gets (a staging-only copy of the day config; the real Day 3
+    // is untouched).
+    state.dayCfg = { ...DAYS[2], rain: 0.85 };
     state.screen = 'play';
     state.score = 4850;
     state.dayDelivered = 4;
@@ -186,10 +214,15 @@ export function stageShot(state, shot, seed) {
     state.holdFlash = true;  // hold a lightning glow in the sky
     state.lightning.flash = 0.4;
     placeBoatNearRoof(state);
-    // Bolt lands in the open water left of the boat, clear of the roofs.
+    // Bolt lands in the open water left of the boat, clear of the roofs,
+    // with a fork branching off toward the fuel barge.
+    const boltX = state.boat.x - 226;
+    const boltY = state.boat.y - 139;
+    const segments = boltSegments(boltX, boltY);
     state.lightning.bolt = {
-      x: state.boat.x - 226, y: state.boat.y - 139, life: 99,
-      segments: boltSegments(state.boat.x - 226, state.boat.y - 139),
+      x: boltX, y: boltY, life: 99,
+      segments,
+      branches: [boltBranch(segments[2])],
     };
   } else if (shot === 'boss') {
     baseDayState(state, 7, seed);
@@ -215,10 +248,41 @@ export function stageShot(state, shot, seed) {
     state.boat.angle = 0.12;
     state.boat.vx = 0;
     state.boat.vy = 0;
+    // Guarantee a rescue is in reach: survivor spawns are random, so the
+    // "PRESS E TO RESCUE" prompt otherwise comes and goes between captures.
+    // Put one survivor on the roof nearest the boat.
+    let nearest = null;
+    let nearestD = Infinity;
+    for (const spot of state.world.roofSpots) {
+      const d = Math.hypot(spot.x - state.boat.x, spot.y - state.boat.y);
+      if (d < nearestD) { nearestD = d; nearest = spot; }
+    }
+    if (nearest && nearestD < 150) {
+      addRoofSurvivor(state, nearest.x, nearest.y, '#ff8fa3', false, 1.3);
+    }
     state.surge.active = true;
     state.surge.x = state.camera.x + 150;
     state.surge.speed = 0; // hold the wall in frame for the photo
     seedWake(state, 16);
+
+    // Fill the empty upper-middle of the frame: one more half-drowned block
+    // with people on its roof, directly in the Surge's path. Coordinates
+    // worked out against the Day 7 / seed 20261118 city: clear of the
+    // warning banner above and the rooftops below.
+    const stageD = makeStagedBuilding(state.camera.x + 480, state.camera.y + 200, 180, 140, 60, 53);
+    state.world.buildings.push(stageD);
+    addRoofSurvivor(state, stageD.x + stageD.w / 2 - 14, stageD.y + stageD.d - stageD.h - 18, '#ffd60a', true, 0.9);
+    addRoofSurvivor(state, stageD.x + stageD.w / 2 + 16, stageD.y + stageD.d - stageD.h - 18, '#4ecdc4', false, 3.0);
+
+    // Wreckage tumbling ahead of the wall: the Surge throws debris before it.
+    const kinds = ['log', 'crate', 'barrel', 'tyre'];
+    [[230, 180], [300, 300], [240, 420], [320, 520], [260, 620], [330, 240]]
+      .forEach(([sx, sy], i) => {
+        state.debris.push({
+          x: state.camera.x + sx, y: state.camera.y + sy, vx: 0, vy: 0,
+          angle: i * 1.1, spin: 0.3, size: 13 + (i % 3) * 3, kind: kinds[i % kinds.length],
+        });
+      });
   } else if (shot === 'end') {
     baseDayState(state, 7, seed);
     state.screen = 'victory';
@@ -239,6 +303,21 @@ function boltSegments(x, y) {
     cy += 28 + rng() * 30;
     cx += (rng() - 0.5) * 70;
     pts.push({ x: cx, y: Math.min(cy, y) });
+  }
+  return pts;
+}
+
+// A fork off a bolt's mid-point: three short segments reaching down-left,
+// so the cover's lightning reads as a branching strike, not a single line.
+function boltBranch(fork) {
+  const rng = makeRng(41);
+  const pts = [{ x: fork.x, y: fork.y }];
+  let cx = fork.x;
+  let cy = fork.y;
+  for (let i = 0; i < 3; i++) {
+    cy += 30 + rng() * 22;
+    cx -= 26 + rng() * 30;
+    pts.push({ x: cx, y: cy });
   }
   return pts;
 }
