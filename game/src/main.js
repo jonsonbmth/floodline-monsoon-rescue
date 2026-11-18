@@ -35,6 +35,7 @@ const state = {
   score: 0,
   combo: 1,
   comboTimer: 0,
+  maxCombo: 1,
   dayDelivered: 0,
   totalDelivered: 0,
   lastDayBonus: 0,
@@ -90,6 +91,7 @@ function saveBest() {
 function newRun() {
   state.score = 0;
   state.totalDelivered = 0;
+  state.maxCombo = 1;
   state.ownedUpgrades = new Set();
   state.runSeed = (Math.random() * 1e9) | 0;
   state.day = 1;

@@ -93,6 +93,7 @@ export function tryDeliver(state) {
   } else {
     state.combo = 1;
   }
+  state.maxCombo = Math.max(state.maxCombo || 1, state.combo);
   state.comboTimer = SCORE.comboWindow;
   const gained = n * SCORE.perSurvivor * state.combo;
   state.score += gained;

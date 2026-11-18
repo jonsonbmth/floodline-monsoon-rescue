@@ -198,11 +198,16 @@ export function stageShot(state, shot, seed) {
   } else if (shot === 'play') {
     baseDayState(state, 3, seed);
     // The cover is the storm at its most dramatic: heavier rain than Day 3
-    // normally gets (a staging-only copy of the day config; the real Day 3
-    // is untouched).
-    state.dayCfg = { ...DAYS[2], rain: 0.85 };
+    // normally gets, and a lighter night grade so the frame reads bright
+    // and high-contrast instead of murky (a staging-only copy of the day
+    // config; the real Day 3 is untouched).
+    state.dayCfg = { ...DAYS[2], rain: 0.85, dark: 0.30 };
     state.screen = 'play';
-    state.score = 4850;
+    state.score = 5640;
+    state.bestScore = 8420;
+    state.maxCombo = 3;
+    // Two days survived: two upgrades already in the boat's build.
+    state.ownedUpgrades = new Set(['hull', 'engine']);
     state.dayDelivered = 4;
     state.timeLeft = 84;
     state.combo = 3;
@@ -214,6 +219,13 @@ export function stageShot(state, shot, seed) {
     state.holdFlash = true;  // hold a lightning glow in the sky
     state.lightning.flash = 0.4;
     placeBoatNearRoof(state);
+    // Floating event numbers, frozen in frame: the last delivery paid
+    // 2 aboard x 100 x combo 3 = +600, and a rooftop group just came aboard.
+    // Long-lived on purpose — the shutter fires seconds after staging.
+    state.floaters.push(
+      { x: state.boat.x - 150, y: state.boat.y - 150, text: '+600  DELIVERED x3', color: '#ffd27a', life: 99, maxLife: 99 },
+      { x: state.boat.x - 150, y: state.boat.y - 90, text: '+2 RESCUED', color: '#58d68d', life: 99, maxLife: 99 },
+    );
     // Bolt lands in the open water left of the boat, clear of the roofs,
     // with a fork branching off toward the fuel barge.
     const boltX = state.boat.x - 226;
@@ -228,6 +240,10 @@ export function stageShot(state, shot, seed) {
     baseDayState(state, 7, seed);
     state.screen = 'play';
     state.score = 11350;
+    state.bestScore = 12480;
+    state.maxCombo = 5;
+    // Six days survived: a full build in the boat by now.
+    state.ownedUpgrades = new Set(['hull', 'engine', 'seats', 'tank', 'lights', 'net']);
     state.dayDelivered = 5;
     state.timeLeft = 96;
     state.combo = 2;
@@ -285,10 +301,15 @@ export function stageShot(state, shot, seed) {
       });
   } else if (shot === 'end') {
     baseDayState(state, 7, seed);
+    // Dawn after the storm: the rain has nearly stopped and the night
+    // grade lifts, so the victory screen sits over a city the sun is
+    // coming back to (staging-only copy; the real Day 7 is untouched).
+    state.dayCfg = { ...DAYS[6], rain: 0.15, dark: 0.12 };
     state.screen = 'victory';
     state.score = 12480;
     state.totalDelivered = 71;
     state.bestScore = 12480;
+    state.maxCombo = 5;
     state.boat.hull = 54;
     state.boat.maxHull = 130;
   }
